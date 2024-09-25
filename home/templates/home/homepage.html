@@ -1,0 +1,124 @@
+{% extends 'home/base.html' %}
+
+{% block title %}Homepage{% endblock %}
+
+{% block content %}
+<h1>Welcome to Delphi Site</h1>
+<p>This site provides an overview of projected death rates for various regions over time. Select a region to explore the data and see the projections for 2023 and 2050.</p>
+
+<label for="region-select">Select Region:</label>
+<select id="region-select">
+    <option value="Asia Pacific">Asia Pacific</option>
+    <option value="High Income Asia">High Income Asia</option>
+    <option value="Central Asia">Central Asia</option>
+    <option value="East Asia">East Asia</option>
+    <option value="South Asia">South Asia</option>
+    <option value="Southeast Asia">Southeast Asia</option>
+    <option value="Australia">Australia</option>
+    <option value="Caribbean">Caribbean</option>
+    <option value="Central Europe">Central Europe</option>
+    <option value="Eastern Europe">Eastern Europe</option>
+    <option value="Western Europe">Western Europe</option>
+    <option value="Andean Latin America">Andean Latin America</option>
+    <option value="Central Latin America">Central Latin America</option>
+    <option value="Southern Latin America">Southern Latin America</option>
+    <option value="Tropical Latin America">Tropical Latin America</option>
+    <option value="High Income North America">High Income North America</option>
+    <option value="North Africa/Middle East">North Africa/Middle East</option>
+    <option value="Oceania">Oceania</option>
+    <option value="Central Sub-Saharan Africa">Central Sub-Saharan Africa</option>
+    <option value="East Sub-Saharan Africa">East Sub-Saharan Africa</option>
+    <option value="Southern Sub-Saharan Africa">Southern Sub-Saharan Africa</option>
+    <option value="West Sub-Saharan Africa">West Sub-Saharan Africa</option>
+</select>
+
+<div class="chart-container">
+    <canvas id="deathRateChart"></canvas>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    const data2023 = {
+        "Asia Pacific": 1244.82,
+        "High Income Asia": 902.51,
+        "Central Asia": 881.08,
+        "East Asia": 755.70,
+        "South Asia": 569.64,
+        "Southeast Asia": 742.83,
+        "Australia": 396.85,
+        "Caribbean": 1756.64,
+        "Central Europe": 2297.72,
+        "Eastern Europe": 618.46,
+        "Western Europe": 497.18,
+        "Andean Latin America": 511.83,
+        "Central Latin America": 945.62,
+        "Southern Latin America": 706.05,
+        "Tropical Latin America": 1168.51,
+        "High Income North America": 530.02,
+        "North Africa/Middle East": 311.77,
+        "Oceania": 456.93,
+        "Central Sub-Saharan Africa": 492.07,
+        "East Sub-Saharan Africa": 457.48,
+        "Southern Sub-Saharan Africa": 313.86,
+        "West Sub-Saharan Africa": 313.86
+    };
+
+    const data2050 = {
+        "Asia Pacific": 2635.75,
+        "High Income Asia": 2841.06,
+        "Central Asia": 2218.65,
+        "East Asia": 2060.14,
+        "South Asia": 2201.93,
+        "Southeast Asia": 1788.85,
+        "Australia": 1104.60,
+        "Caribbean": 3715.25,
+        "Central Europe": 4891.77,
+        "Eastern Europe": 1945.32,
+        "Western Europe": 2238.19,
+        "Andean Latin America": 1919.18,
+        "Central Latin America": 2396.18,
+        "Southern Latin America": 2509.80,
+        "Tropical Latin America": 2732.18,
+        "High Income North America": 1766.02,
+        "North Africa/Middle East": 1034.56,
+        "Oceania": 1658.76,
+        "Central Sub-Saharan Africa": 1526.49,
+        "East Sub-Saharan Africa": 1634.07,
+        "Southern Sub-Saharan Africa": 961.76,
+        "West Sub-Saharan Africa": 961.76
+    };
+
+    const ctx = document.getElementById('deathRateChart').getContext('2d');
+    let chart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: ['2023', '2050'],
+            datasets: [{
+                label: 'Deaths per 100,000 people',
+                data: [data2023['Asia Pacific'], data2050['Asia Pacific']],
+                backgroundColor: '#A2999E',
+                borderColor: '#007991',
+                fill: false,
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    title: {
+                        display: true,
+                        text: 'Deaths per 100,000 people'
+                    }
+                }
+            }
+        }
+    });
+
+    document.getElementById('region-select').addEventListener('change', function() {
+        const selectedRegion = this.value;
+        chart.data.datasets[0].data = [data2023[selectedRegion], data2050[selectedRegion]];
+        chart.update();
+    });
+</script>
+{% endblock %}

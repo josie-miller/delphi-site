@@ -1,0 +1,16 @@
+{% extends 'home/base.html' %}
+
+{% block title %}{{ post.title }}{% endblock %}
+
+{% block content %}
+<div class="post">
+    <h1>{{ post.title }}</h1>
+    <p>{{ post.subtext }}</p>
+    {% if post.image %}
+        <img src="{{ post.image.url }}" alt="{{ post.title }}" style="max-width: 100%; height: auto;">
+    {% endif %}
+    <div class="post-content">
+        {{ post.content|linebreaks }}
+    </div>
+</div>
+{% endblock %}
