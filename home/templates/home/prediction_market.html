@@ -1,0 +1,86 @@
+{% extends 'home/base.html' %}
+
+{% block title %}Prediction Market{% endblock %}
+
+{% block content %}
+<h1>Prediction Market</h1>
+
+<div id="question-container">
+    <h3 id="question-text"></h3>
+    <form id="prediction-form">
+        <input type="hidden" id="question-id" name="question_id" value="">
+        <div id="choices-container"></div>
+        <button type="submit">Submit Answer</button>
+    </form>
+</div>
+
+<div id="result-message" style="display:none;">
+    <h3>Thank you for contributing!</h3>
+</div>
+
+<!-- Use json_script -->
+{{ questions|json_script:"question-data" }}
+
+<script>
+    const questionData = JSON.parse(document.getElementById('question-data').textContent);
+
+    let currentQuestionIndex = 0;
+
+    // next q
+    function loadQuestion(question) {
+        document.getElementById("question-text").innerText = question.text;
+        document.getElementById("question-id").value = question.id;  
+        
+        const choicesContainer = document.getElementById("choices-container");
+        choicesContainer.innerHTML = '';  
+
+        question.choices.forEach(function(choice) {
+            const choiceInput = document.createElement("input");
+            choiceInput.type = "radio";
+            choiceInput.name = "answer";
+            choiceInput.value = choice;
+
+            const choiceLabel = document.createElement("label");
+            choiceLabel.innerText = choice;
+
+            const br = document.createElement("br");
+
+            choicesContainer.appendChild(choiceInput);
+            choicesContainer.appendChild(choiceLabel);
+            choicesContainer.appendChild(br);
+        });
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        if (questionData.length > 0) {
+            loadQuestion(questionData[currentQuestionIndex]);
+        }
+    });
+
+    // Handle form submission via AJAX
+    document.getElementById("prediction-form").addEventListener("submit", function(event) {
+        event.preventDefault();
+
+        const formData = new FormData(this);
+        formData.append("user", "Anonymous"); 
+
+        fetch("{% url 'submit_answer' %}", {
+            method: "POST",
+            body: formData,
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.finished) {
+                document.getElementById("question-container").style.display = 'none';
+                document.getElementById("result-message").style.display = 'block';
+            } else {
+                loadQuestion(data.next_question);
+            }
+        })
+        .catch(error => console.log('Error:', error));
+    });
+</script>
+{% endblock %}

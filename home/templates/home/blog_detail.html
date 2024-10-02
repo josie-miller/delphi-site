@@ -3,14 +3,40 @@
 {% block title %}{{ post.title }}{% endblock %}
 
 {% block content %}
-<div class="post">
+<div class="blog-post">
     <h1>{{ post.title }}</h1>
     <p>{{ post.subtext }}</p>
+
     {% if post.image %}
-        <img src="{{ post.image.url }}" alt="{{ post.title }}" style="max-width: 100%; height: auto;">
+        <img src="{{ post.image.url }}" alt="{{ post.title }}">
     {% endif %}
+
     <div class="post-content">
         {{ post.content|linebreaks }}
     </div>
+
+    <div class="post-footer">
+        <span class="post-views">{{ post.views }} views</span>
+        <span class="post-comments">{{ comments.count }} comments</span>
+        <span class="post-like"><a href="{% url 'like_post' post.id %}">❤️</a> {{ post.likes }}</span>
+    </div>
+
+    <h2>Comments</h2>
+    <ul>
+        {% for comment in comments %}
+            <li>
+                <strong>{{ comment.author }}</strong>:
+                <p>{{ comment.content }}</p>
+                <small>Posted on {{ comment.created_at }}</small>
+            </li>
+        {% endfor %}
+    </ul>
+
+    <h3>Leave a Comment</h3>
+    <form method="post">
+        {% csrf_token %}
+        {{ comment_form.as_p }}
+        <button type="submit">Submit Comment</button>
+    </form>
 </div>
 {% endblock %}

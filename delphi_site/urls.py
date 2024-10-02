@@ -22,7 +22,11 @@ from django.conf.urls.static import static
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('', views.home, name='home'),
-    path('blog/', views.blog_list, name='blog_list'),  # Blog listing page
-    path('blog/<int:post_id>/', views.blog_detail, name='blog_detail'),  # Individual blog post page
+    path('', views.homepage, name='home'),
+    path('blog/', views.blog_list, name='blog_list'),
+    path('blog/<int:post_id>/', views.blog_detail, name='blog_detail'),
+    path('blog/<int:post_id>/like/', views.like_post, name='like_post'),
+    path('prediction-market/', views.prediction_market, name='prediction_market'),  # Ensure the URL is correct
+    path('submit-answer/', views.submit_answer, name='submit_answer'),  # For AJAX submission
+    path('get_climate_factors/', views.get_climate_factors, name='get_climate_factors'),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
