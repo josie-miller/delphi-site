@@ -5,59 +5,79 @@
     <h2>Life Expectancy Projection</h2>
 
     <form method="get">
+        <!-- Country selection -->
         <label for="country">Select Country:</label>
         <select id="country" name="country">
             {% for country in countries %}
                 <option value="{{ country }}" {% if country == selected_country %}selected{% endif %}>{{ country }}</option>
             {% endfor %}
         </select>
-    
+
+        <!-- Nuclear factor selection -->
         <label for="nuclear_factor">Select Nuclear Factor:</label>
         <select id="nuclear_factor" name="nuclear_factor" onchange="updateClimateFactors()">
-            {% for factor in factor_range %}
+            {% for factor in valid_nuclear_factors %}
                 <option value="{{ factor }}" {% if factor == nuclear_factor %}selected{% endif %}>{{ factor }}</option>
             {% endfor %}
         </select>
-    
+
+        <!-- Climate factor selection -->
         <label for="climate_factor">Select Climate Factor:</label>
-        <select id="climate_factor" name="climate_factor">
-            {% for factor in factor_range %}
+        <select id="climate_factor" name="climate_factor" onchange="updateNuclearFactors()">
+            {% for factor in valid_climate_factors %}
                 <option value="{{ factor }}" {% if factor == climate_factor %}selected{% endif %}>{{ factor }}</option>
             {% endfor %}
         </select>
-    
+
         <button type="submit">Submit</button>
     </form>
-    
+
+    <!-- JavaScript to dynamically update climate and nuclear factors -->
     <script>
         function updateClimateFactors() {
-    // Get the selected nuclear factor
-    var nuclearFactor = document.getElementById('nuclear_factor').value;
-    
-    // Make an AJAX request to get valid climate factors based on the selected nuclear factor
-    fetch(`/get_climate_factors?nuclear_factor=${nuclearFactor}`)
-        .then(response => response.json())
-        .then(data => {
-            // Clear the existing climate factor options
-            var climateFactorSelect = document.getElementById('climate_factor');
-            climateFactorSelect.innerHTML = '';
+            // Get the selected nuclear factor
+            var nuclearFactor = document.getElementById('nuclear_factor').value;
 
-            // Add the new valid climate factor options
-            data.valid_factors.forEach(function(factor) {
-                var option = document.createElement('option');
-                option.value = factor;
-                option.text = factor;
-                climateFactorSelect.add(option);
-            });
-        })
-        .catch(error => {
-            console.error("Error fetching climate factors:", error);
-        });
-}
+            // Fetch valid climate factors based on the selected nuclear factor
+            fetch(`/get_climate_factors?nuclear_factor=${nuclearFactor}`)
+                .then(response => response.json())
+                .then(data => {
+                    var climateFactorSelect = document.getElementById('climate_factor');
+                    climateFactorSelect.innerHTML = '';
 
-        </script>
+                    // Add the valid climate factors to the dropdown
+                    data.valid_factors.forEach(function(factor) {
+                        var option = document.createElement('option');
+                        option.value = factor;
+                        option.text = factor;
+                        climateFactorSelect.add(option);
+                    });
+                });
+        }
 
-    <!-- Display the Plotly chart -->
+        function updateNuclearFactors() {
+            // Get the selected climate factor
+            var climateFactor = document.getElementById('climate_factor').value;
+
+            // Fetch valid nuclear factors based on the selected climate factor
+            fetch(`/get_nuclear_factors?climate_factor=${climateFactor}`)
+                .then(response => response.json())
+                .then(data => {
+                    var nuclearFactorSelect = document.getElementById('nuclear_factor');
+                    nuclearFactorSelect.innerHTML = '';
+
+                    // Add the valid nuclear factors to the dropdown
+                    data.valid_factors.forEach(function(factor) {
+                        var option = document.createElement('option');
+                        option.value = factor;
+                        option.text = factor;
+                        nuclearFactorSelect.add(option);
+                    });
+                });
+        }
+    </script>
+
+    <!-- Plotly Chart -->
     <div class="chart-container">
         {{ plot_div|safe }}
     </div>

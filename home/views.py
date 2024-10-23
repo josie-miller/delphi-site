@@ -11,16 +11,7 @@ from django.conf import settings
 # Load the dataset file path from your media or static folder
 DATA_FILE_PATH = os.path.join(settings.BASE_DIR, 'home/static/data/life-expectancy-at-birth-including-the-un-projections.csv')
 
-def get_climate_factors(request):
-    nuclear_factor = int(request.GET.get('nuclear_factor'))
-    
-    # Filter scenarios_df for rows where the nuclear factor matches the one from the request
-    valid_climate_factors = scenarios_df[scenarios_df['nuclear_factor'] == nuclear_factor]['climate_factor'].unique()
-    
-    # Return the valid climate factors as a JSON response
-    return JsonResponse({
-        'valid_factors': list(valid_climate_factors)
-    })
+
 
 # Load life expectancy data
 life_expectancy_data = pd.read_csv(DATA_FILE_PATH)
@@ -43,48 +34,98 @@ scenarios_df = pd.DataFrame({
     ]
 })
 
+from django.http import JsonResponse
+
+def get_climate_factors(request):
+    nuclear_factor = int(request.GET.get('nuclear_factor'))
+    
+    # Filter scenarios_df for rows where the nuclear factor matches the one from the request
+    valid_climate_factors = scenarios_df[scenarios_df['nuclear_factor'] == nuclear_factor]['climate_factor'].unique()
+
+    # Convert to native Python int types
+    valid_climate_factors = valid_climate_factors.astype(int)
+
+    # Return the valid climate factors as a JSON response
+    return JsonResponse({
+        'valid_factors': list(valid_climate_factors)  # Convert to a list for JSON serialization
+    })
+
+def get_nuclear_factors(request):
+    climate_factor = int(request.GET.get('climate_factor'))
+
+    # Fetch valid nuclear factors based on the selected climate factor
+    valid_nuclear_factors = scenarios_df[scenarios_df['climate_factor'] == climate_factor]['nuclear_factor'].unique()
+
+    # Convert to native Python int types
+    valid_nuclear_factors = valid_nuclear_factors.astype(int)
+
+    # Return valid nuclear factors as a JSON response
+    return JsonResponse({
+        'valid_factors': list(valid_nuclear_factors)  # Convert to a list for JSON serialization
+    })
+
+
+
 def homepage(request):
     countries = life_expectancy_data['Country'].unique()
-    
+
     # Default to the first country or use the one selected by the user
     selected_country = request.GET.get('country', countries[0])
     nuclear_factor = int(request.GET.get('nuclear_factor', 1))
     climate_factor = int(request.GET.get('climate_factor', 1))
 
-    # Filter data for the selected country
+    # Filter data for the selected country (Fix for country_data not being defined)
     country_data = life_expectancy_data[life_expectancy_data['Country'] == selected_country]
 
-    # Get the scenario based on the nuclear and climate factor
-    scenario = scenarios_df[(scenarios_df['nuclear_factor'] == nuclear_factor) & 
-                            (scenarios_df['climate_factor'] == climate_factor)].iloc[0]
+    # Fetch valid climate factors for the selected nuclear factor
+    valid_climate_factors = scenarios_df[scenarios_df['nuclear_factor'] == nuclear_factor]['climate_factor'].unique()
 
-    # Get the 2021 life expectancy
+    # Fetch valid nuclear factors for the selected climate factor
+    valid_nuclear_factors = scenarios_df[scenarios_df['climate_factor'] == climate_factor]['nuclear_factor'].unique()
+
+    # Check if there's a matching scenario for the nuclear and climate factors
+    scenario_filter = (scenarios_df['nuclear_factor'] == nuclear_factor) & (scenarios_df['climate_factor'] == climate_factor)
+    filtered_scenarios = scenarios_df[scenario_filter]
+
+    if filtered_scenarios.empty:
+        return HttpResponseBadRequest("Invalid nuclear or climate factor combination.")
+
+    # Get the first matching scenario
+    scenario = filtered_scenarios.iloc[0]
+
+    # Get the 2021 life expectancy for the selected country
     life_exp_2021 = country_data[country_data['Year'] == 2021]['Life Expectancy'].values[0]
 
-    # Generate future projections based on the scenario
+    # Generate future life expectancy projections based on the scenario
     years = list(range(2021, 2101))
-    life_exp_projections = [life_exp_2021 + (scenario['life_exp'] - life_exp_2021) * (year - 2021) / (2100 - 2021) for year in years]
+    life_exp_projections = [
+        life_exp_2021 + (scenario['life_exp'] - life_exp_2021) * (year - 2021) / (2100 - 2021) 
+        for year in years
+    ]
 
-    # Create a Plotly figure
+    # Create a Plotly figure for the life expectancy projections
     fig = go.Figure()
 
-    # Plot historical data
+    # Plot historical life expectancy data
     historical_data = country_data[country_data['Year'] <= 2021]
-    fig.add_trace(go.Scatter(x=historical_data['Year'], y=historical_data['Life Expectancy'], mode='lines+markers', name='Historical'))
+    fig.add_trace(go.Scatter(x=historical_data['Year'], y=historical_data['Life Expectancy'], 
+                             mode='lines+markers', name='Historical'))
 
-    # Plot future projections based on nuclear and climate factors
-    fig.add_trace(go.Scatter(x=years, y=life_exp_projections, mode='lines+markers', name='Future Projections by Factors'))
+    # Plot future projections based on the nuclear and climate factors
+    fig.add_trace(go.Scatter(x=years, y=life_exp_projections, 
+                             mode='lines+markers', name='Future Projections by Factors'))
 
-    # Update the layout of the plot
+    # Update layout for the Plotly chart
     fig.update_layout(
         title=f'Life Expectancy Projection for {selected_country}',
         xaxis_title='Year',
         yaxis_title='Life Expectancy (years)'
     )
 
-    # Convert the plot to an HTML element
+    # Convert the Plotly figure to HTML for rendering in the template
     plot_div = fig.to_html(full_html=False)
 
+    # Prepare context data to render the template
     context = {
         'plot_div': plot_div,
         'countries': countries,
@@ -92,7 +133,8 @@ def homepage(request):
         'nuclear_factor': nuclear_factor,
         'climate_factor': climate_factor,
         'scenario_description': scenario['description'],
-        'factor_range': range(1, 6)  # To generate the options for factors
+        'valid_nuclear_factors': list(valid_nuclear_factors),  # Pass valid nuclear factors
+        'valid_climate_factors': list(valid_climate_factors),  # Pass valid climate factors
     }
 
     return render(request, 'home/homepage.html', context)
