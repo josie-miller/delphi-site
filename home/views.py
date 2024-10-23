@@ -70,7 +70,7 @@ def homepage(request):
     countries = life_expectancy_data['Country'].unique()
 
     # Default to the first country or use the one selected by the user
-    selected_country = request.GET.get('country', countries[0])
+    selected_country = request.GET.get('country', 'World')
     nuclear_factor = int(request.GET.get('nuclear_factor', 1))
     climate_factor = int(request.GET.get('climate_factor', 1))
 
