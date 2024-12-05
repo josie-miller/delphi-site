@@ -5,6 +5,7 @@ from .forms import CommentForm
 from django.shortcuts import render, get_object_or_404, redirect
 import os
 import pandas as pd
+from plotly.colors import find_intermediate_color, sequential
 import plotly.graph_objs as go
 from django.conf import settings
 
@@ -21,6 +22,7 @@ scenarios_df = pd.DataFrame({
     "nuclear_factor": [1, 1, 1, 1, 1, 2, 3, 4, 5],
     "climate_factor": [1, 2, 3, 4, 5, 1, 1, 1, 1],
     "life_exp": [80.9, 80.5, 80.1, 79.9, 78.9, 78.4, 68.2, 55.9, 46.5],
+    "probability": [4.93, 9.85, 73.88, 6.90, 2.96, 0.35, 0.65, 0.50, 0.10], # in percent
     "description": [
         "Mild impact on both nuclear and climate fronts, minimal disruption expected.",
         "Mild nuclear impact with moderate climate change, increased environmental stress.",
@@ -64,77 +66,101 @@ def get_nuclear_factors(request):
         'valid_factors': list(valid_nuclear_factors)  # Convert to a list for JSON serialization
     })
 
-
+import numpy as np
+from plotly.colors import sequential
 
 def homepage(request):
     countries = life_expectancy_data['Country'].unique()
-
-    # Default to the first country or use the one selected by the user
     selected_country = request.GET.get('country', 'World')
-    nuclear_factor = int(request.GET.get('nuclear_factor', 1))
-    climate_factor = int(request.GET.get('climate_factor', 1))
-
-    # Filter data for the selected country (Fix for country_data not being defined)
     country_data = life_expectancy_data[life_expectancy_data['Country'] == selected_country]
 
-    # Fetch valid climate factors for the selected nuclear factor
-    valid_climate_factors = scenarios_df[scenarios_df['nuclear_factor'] == nuclear_factor]['climate_factor'].unique()
+    if country_data[country_data['Year'] == 2021].empty:
+        return HttpResponseBadRequest(f"No life expectancy data for {selected_country} in 2021.")
 
-    # Fetch valid nuclear factors for the selected climate factor
-    valid_nuclear_factors = scenarios_df[scenarios_df['climate_factor'] == climate_factor]['nuclear_factor'].unique()
-
-    # Check if there's a matching scenario for the nuclear and climate factors
-    scenario_filter = (scenarios_df['nuclear_factor'] == nuclear_factor) & (scenarios_df['climate_factor'] == climate_factor)
-    filtered_scenarios = scenarios_df[scenario_filter]
-
-    if filtered_scenarios.empty:
-        return HttpResponseBadRequest("Invalid nuclear or climate factor combination.")
-
-    # Get the first matching scenario
-    scenario = filtered_scenarios.iloc[0]
-
-    # Get the 2021 life expectancy for the selected country
     life_exp_2021 = country_data[country_data['Year'] == 2021]['Life Expectancy'].values[0]
-
-    # Generate future life expectancy projections based on the scenario
     years = list(range(2021, 2101))
-    life_exp_projections = [
-        life_exp_2021 + (scenario['life_exp'] - life_exp_2021) * (year - 2021) / (2100 - 2021) 
-        for year in years
-    ]
-
-    # Create a Plotly figure for the life expectancy projections
     fig = go.Figure()
 
-    # Plot historical life expectancy data
+    # Plot historical data
     historical_data = country_data[country_data['Year'] <= 2021]
-    fig.add_trace(go.Scatter(x=historical_data['Year'], y=historical_data['Life Expectancy'], 
-                             mode='lines+markers', name='Historical'))
+    fig.add_trace(go.Scatter(
+        x=historical_data['Year'],
+        y=historical_data['Life Expectancy'],
+        mode='lines+markers',
+        name='Historical Data',
+        line=dict(color='blue'),
+        hovertemplate="Year: %{x}<br>Life Expectancy: %{y}<extra></extra>"
+    ))
 
-    # Plot future projections based on the nuclear and climate factors
-    fig.add_trace(go.Scatter(x=years, y=life_exp_projections, 
-                             mode='lines+markers', name='Future Projections by Factors'))
+    # Normalize probabilities
+    probabilities = scenarios_df['probability'].values
+    normalized_probs = (probabilities - probabilities.min()) / (probabilities.max() - probabilities.min())
 
-    # Update layout for the Plotly chart
+    # Flip the Viridis color scale
+    colorscale = list(reversed(sequential.Viridis))
+
+    # Add lines for each scenario with colormap
+    for idx, scenario in scenarios_df.iterrows():
+        life_exp_projections = [
+            life_exp_2021 + (scenario['life_exp'] - life_exp_2021) * (year - 2021) / (2100 - 2021)
+            for year in years
+        ]
+
+        # Map normalized probability to a color
+        color = colorscale[int(normalized_probs[idx] * (len(colorscale) - 1))]
+        if isinstance(color, str):
+            color = color.lstrip("#")
+            r, g, b = [int(color[i:i + 2], 16) for i in (0, 2, 4)]
+        else:
+            r, g, b = [int(c * 255) for c in color[:3]]  # Extract RGB components
+
+        fig.add_trace(go.Scatter(
+            x=years,
+            y=life_exp_projections,
+            mode='lines',
+            name=f"Nuclear: {scenario['nuclear_factor']}, Climate: {scenario['climate_factor']}",
+            line=dict(color=f'rgb({r},{g},{b})', dash='dash'),
+            customdata=[[scenario['nuclear_factor'], scenario['climate_factor']]] * len(years),
+            hovertemplate="Nuclear: %{customdata[0]}, Climate: %{customdata[1]}<br>Year: %{x}<br>Life Expectancy: %{y:.2f}<extra></extra>"
+        ))
+
+    # Add a color legend (dummy scatter trace for color scale representation)
+    fig.add_trace(go.Scatter(
+        x=[None], y=[None],  # Invisible data points
+        mode='markers',
+        marker=dict(
+            size=15,
+            color=probabilities,
+            colorscale=colorscale,
+            cmin=probabilities.min(),
+            cmax=probabilities.max(),
+            showscale=True,
+            colorbar=dict(
+                title='Probability (%)',
+                titleside='right',
+                ticks='outside',
+                x=1.1,  # Adjust color bar position
+                y=0.5,
+                len=0.8  # Adjust length of the color bar
+            )
+        ),
+        hoverinfo='none',
+        showlegend=False
+    ))
+
     fig.update_layout(
-        title=f'Life Expectancy Projection for {selected_country}',
+        title=f'Life Expectancy Projection for {selected_country} (Historical + Projections)',
         xaxis_title='Year',
-        yaxis_title='Life Expectancy (years)'
+        yaxis_title='Life Expectancy (years)',
+        legend_title="Scenarios",
+        showlegend=True
     )
 
-    # Convert the Plotly figure to HTML for rendering in the template
     plot_div = fig.to_html(full_html=False)
-
-    # Prepare context data to render the template
     context = {
         'plot_div': plot_div,
         'countries': countries,
         'selected_country': selected_country,
-        'nuclear_factor': nuclear_factor,
-        'climate_factor': climate_factor,
-        'scenario_description': scenario['description'],
-        'valid_nuclear_factors': list(valid_nuclear_factors),  # Pass valid nuclear factors
-        'valid_climate_factors': list(valid_climate_factors),  # Pass valid climate factors
     }
 
     return render(request, 'home/homepage.html', context)
