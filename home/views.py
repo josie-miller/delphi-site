@@ -40,7 +40,7 @@ from django.http import JsonResponse
 
 def get_climate_factors(request):
     nuclear_factor = int(request.GET.get('nuclear_factor'))
-    
+
     # Filter scenarios_df for rows where the nuclear factor matches the one from the request
     valid_climate_factors = scenarios_df[scenarios_df['nuclear_factor'] == nuclear_factor]['climate_factor'].unique()
 
@@ -153,7 +153,7 @@ def homepage(request):
         xaxis_title='Year',
         yaxis_title='Life Expectancy (years)',
         legend_title="Scenarios",
-        showlegend=True
+        showlegend=False
     )
 
     plot_div = fig.to_html(full_html=False)
@@ -172,7 +172,7 @@ def blog_list(request):
 
 def blog_detail(request, post_id):
     post = get_object_or_404(BlogPost, id=post_id)
-    
+
     # Increment views count
     post.views += 1
     post.save()
@@ -239,17 +239,17 @@ def submit_answer(request):
         question_id = request.POST.get('question_id')  # Capture the question ID
         answer = request.POST.get('answer')
         user = request.POST.get('user') or "Anonymous"
-        
+
         if not question_id:
             return JsonResponse({'error': 'Question ID is missing'}, status=400)
-        
+
         # Store the user's answer
         PredictionResponse.objects.create(
             question_number=int(question_id),  # Ensure the question_id is passed as an integer
             user=user,
             answer=answer
         )
-        
+
         # Find the next question
         next_question_id = int(question_id) + 1
         if next_question_id <= len(QUESTIONS):
